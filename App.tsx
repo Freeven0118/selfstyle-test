@@ -664,7 +664,7 @@ const App: React.FC = () => {
                              </span>
                              <div className="h-px bg-slate-700 flex-1"></div>
                          </div>
-                         <h4 className="text-center text-white font-bold text-4xl md:text-5xl tracking-tight mb-8">形象是可以學習的技能</h4>
+                         <h4 className="text-center text-white font-bold text-3xl md:text-3xl tracking-tight mb-8">形象是可以學習的技能</h4>
                     </div>
 
                     <div className="space-y-8">
@@ -674,8 +674,8 @@ const App: React.FC = () => {
                         </p>
                         
                         <p className="text-xl md:text-2xl leading-relaxed font-medium text-white text-center py-4">
-                            我將這七年的實戰與教學經驗，簡化為好懂、好複製的系統化SOP，<br className="hidden md:block" />
-                            正式名稱：「<span className="text-amber-400 font-black text-2xl md:text-3xl">SOLAR戀愛形象系統</span>」。
+                            我將這七年的實戰與教學經驗，簡化為好懂、好複製的系統化SOP：<br className="hidden md:block" />
+                            <span className="text-amber-400 font-black text-2xl md:text-3xl">SOLAR戀愛形象系統</span>
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
