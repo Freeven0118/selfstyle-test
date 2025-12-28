@@ -663,13 +663,13 @@ const App: React.FC = () => {
 
                     <div className="space-y-8">
                         <p className="text-xl md:text-2xl leading-relaxed font-bold text-white text-center">
-                            你真正需要的不是只變帥那一天的一次性服務，<br className="hidden md:block" />
+                            你真正需要的不是只變帥那一天的單次服務，<br className="hidden md:block" />
                             而是擁有一套<span className="text-slate-200">可立即複製套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-slate-200">展示自己最好的一面</span>。
                         </p>
                         
                         <p className="text-xl md:text-2xl leading-relaxed font-medium text-white text-center py-4">
                             我將這七年的實戰與教學經驗，簡化為好懂、好複製的系統化SOP，<br className="hidden md:block" />
-                            正式名稱：「<span className="text-amber-400 font-black text-1xl md:text-2xl">SOLAR戀愛形象系統</span>」。
+                            正式名稱：<span className="text-amber-400 font-black text-1xl md:text-2xl">SOLAR戀愛形象系統</span>
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
