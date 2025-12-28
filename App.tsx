@@ -149,7 +149,17 @@ const App: React.FC = () => {
         : "⚠️ AI 連線忙碌中，這是根據您的分數生成的基礎報告。",
       personaOverview: "您的潛力巨大，建議重新整理頁面再次進行深度分析。",
       skinAnalysis: "保養是基本功，請建立每日SOP。",
-      hairAnalysis: "髮型決定第一印象，請尋找合適設計師。",
+      hairAnalysis: "髮型決定第一印象，請尋找合適設計師。",        **撰寫語氣要求：**
+
+        1. 戰略大於執行：嚴格禁止提供瑣碎的「具體執行事項」（如：去剪頭髮、買保養品）。這些細節留給課程。你要給的是「宏觀戰略」。
+        2. 語氣口吻：
+           - 像一位**有經驗的兄長**，語氣**平穩、堅定，一針見血但也帶有溫度**。
+           - 不過度攻擊，重點在於「引導」與「建設性」。
+           - 排版要求：請在不同觀點或段落間，使用 \`\\n\` 進行明確的換行。我們會在前端將每一段分開顯示，所以請確保段落之間有清楚的邏輯區隔。
+        3. 【關鍵】：結尾的導流鋪陳
+           - 在建議的最後一段，你必須明確指出：**「知道問題在哪裡」跟「能夠解決問題」是兩回事**。
+           - 告訴他，如果缺乏一套有系統的計畫，憑感覺摸索很容易重蹈覆轍。
+           - 用一句話引導他去看下方的教練計畫。
       styleAnalysis: "穿搭需要策略，請注重版型與修飾。",
       socialAnalysis: "經營社群就是經營個人品牌。",
       coachGeneralAdvice: "這是一份基礎戰略報告。請參考上方的雷達圖與維度分析，這依然是你提升魅力的重要起點。若需 **完整的 AI 深度解析**，建議稍後再試。"
@@ -669,8 +679,8 @@ const App: React.FC = () => {
 
                     <div className="space-y-8">
                         <p className="text-xl md:text-2xl leading-relaxed font-bold text-white text-center">
-                            你真正需要的不是只變帥那一天的一次性服務，<br className="hidden md:block" />
-                            而是擁有一套<span className="text-slate-200">可立即複製套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-slate-200">展示自己最好的一面</span>。
+                            你真正需要的不是只變帥一天的單次服務，<br className="hidden md:block" />
+                            而是擁有一套<span className="text-slate-200">可立即複製+持續套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-slate-200">展示自己最好的一面</span>。
                         </p>
                         
                         <p className="text-xl md:text-2xl leading-relaxed font-medium text-white text-center py-4">
