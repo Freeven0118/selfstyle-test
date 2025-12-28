@@ -14,7 +14,7 @@ export const CATEGORY_IMAGES: Record<Category, string> = {
 export const EXPERT_CONFIG = {
   name: "形象教練 彭邦典",
   title: "自信魅力養成 / 脫單形象塑造",
-  imageUrl: "https://d1yei2z3i6k35z.cloudfront.net/2452254/6950e2a881260_1.911.png", 
+  imageUrl: "https://d1yei2z3i6k35z.cloudfront.net/2452254/693980ce9054d_mobile2withsign.jpg", 
   description: "不需要你是帥哥，也不需要你花大錢買名牌，只要掌握這套邏輯，你就能在 5 週後建立起讓女人忍不住多看一眼的「精緻質感」，徹底掌握戀愛的入場門票！",
   ctaButtonText: "查看 5 週變身計畫 (每月僅收3人)"
 };
