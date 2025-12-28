@@ -391,7 +391,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="relative w-full aspect-[4/3] flex items-center justify-center animate-float overflow-visible">
-             <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6950d78862cc9_43.png" className="object-contain w-full h-full drop-shadow-2xl" />
+             <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6950e2a881260_1.911.png" className="object-contain w-full h-full drop-shadow-2xl" />
           </div>
 
           <div className="px-2 md:px-4 w-full">
