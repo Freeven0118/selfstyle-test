@@ -164,7 +164,8 @@ const App: React.FC = () => {
         return;
     }
 
-    const apiKeyToUse = overrideKey || customApiKey || process.env.API_KEY;
+    // 更新這裡：優先讀取 overrideKey, 然後是 customApiKey, 最後是環境變數 GEMINI_API_KEY
+    const apiKeyToUse = overrideKey || customApiKey || process.env.GEMINI_API_KEY;
 
     if (!apiKeyToUse) {
       console.error("API Key is missing.");
@@ -663,7 +664,7 @@ const App: React.FC = () => {
                     <div className="space-y-8">
                         <p className="text-xl md:text-2xl leading-relaxed font-bold text-white text-center">
                             你真正需要的不是只變帥那一天的一次性服務，<br className="hidden md:block" />
-                            而是擁有一套<span className="text-amber-400">可立即複製套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-amber-400">展示自己最好的一面</span>。
+                            而是擁有一套<span className="text-slate-200">可立即複製套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-slate-200">展示自己最好的一面</span>。
                         </p>
                         
                         <p className="text-xl md:text-2xl leading-relaxed font-medium text-white text-center py-4">
