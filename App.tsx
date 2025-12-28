@@ -382,19 +382,19 @@ const App: React.FC = () => {
     <div className="min-h-screen max-w-2xl mx-auto flex flex-col items-center px-0 md:px-8 py-0 md:py-8">
       {step === 'hero' && (
         <div className="flex-1 flex flex-col justify-start md:justify-center w-full animate-fade-in py-6 md:py-10 space-y-4 md:space-y-12 px-4 md:px-0">
-          <div className="text-center space-y-2 md:space-y-4">
-            <h1 className="text-3xl md:text-7xl font-black text-slate-900 tracking-tighter leading-tight">形象力檢核分析</h1>
+          <div className="text-center space-y-2 md:space-y-4 relative z-20">
+            <h1 className="text-3xl md:text-7xl font-black text-slate-900 tracking-tighter leading-normal py-1">形象力檢核分析</h1>
             <div className="space-y-1 md:space-y-2">
                 <p className="text-lg md:text-3xl text-slate-500 font-bold">專為 25-35 歲男性設計</p>
                 <p className="text-lg md:text-3xl text-slate-500 font-bold">找出阻礙你散發魅力的形象盲點</p>
             </div>
           </div>
 
-          <div className="relative w-full aspect-[4/3] flex items-center justify-center animate-float overflow-visible">
+          <div className="relative w-full aspect-[16/9] flex items-center justify-center animate-float overflow-visible">
              <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6950e2a881260_1.911.png" className="object-contain w-full h-full drop-shadow-2xl" />
           </div>
 
-          <div className="px-2 md:px-4 w-full">
+          <div className="px-2 md:px-4 w-full relative z-20">
             <button 
               onClick={handleStart} 
               className="w-full relative overflow-hidden bg-slate-900 hover:bg-black text-white font-black py-4 md:py-7 rounded-[2rem] md:rounded-[2.5rem] text-2xl md:text-3xl shadow-2xl transition transform active:scale-95 text-center group animate-shimmer"
@@ -658,18 +658,18 @@ const App: React.FC = () => {
                              </span>
                              <div className="h-px bg-slate-700 flex-1"></div>
                          </div>
-                         <h4 className="text-center text-white font-bold text-3xl md:text-4xl tracking-tight mb-8">形象是可以學習的技能</h4>
+                         <h4 className="text-center text-white font-bold text-4xl md:text-5xl tracking-tight mb-8">形象是可以學習的技能</h4>
                     </div>
 
                     <div className="space-y-8">
                         <p className="text-xl md:text-2xl leading-relaxed font-bold text-white text-center">
-                            你真正需要的不是只變帥那一天的單次服務，<br className="hidden md:block" />
+                            你真正需要的不是只變帥那一天的一次性服務，<br className="hidden md:block" />
                             而是擁有一套<span className="text-slate-200">可立即複製套用的形象公式</span>，<br className="hidden md:block" />能夠<span className="text-slate-200">展示自己最好的一面</span>。
                         </p>
                         
                         <p className="text-xl md:text-2xl leading-relaxed font-medium text-white text-center py-4">
                             我將這七年的實戰與教學經驗，簡化為好懂、好複製的系統化SOP，<br className="hidden md:block" />
-                            正式名稱：<span className="text-amber-400 font-black text-1xl md:text-2xl">SOLAR戀愛形象系統</span>
+                            正式名稱：「<span className="text-amber-400 font-black text-2xl md:text-3xl">SOLAR戀愛形象系統</span>」。
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
