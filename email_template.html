@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>形象力診斷報告</title>
+<style>
+  /* 基礎重置 */
+  body, table, td, div { 
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+    -webkit-text-size-adjust: none;
+    line-height: 1.6;
+    color: #000000;
+  }
+  img { 
+    max-width: 100%; 
+    height: auto; 
+    display: block; 
+  }
+  a { text-decoration: none; }
+  
+  /* 強制深色模式下的文字顏色不被反轉 (Outlook/Gmail Dark Mode Fixes) */
+  [data-ogsc] .white-bg { background-color: #ffffff !important; }
+  [data-ogsc] .dark-text { color: #000000 !important; }
+</style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  
+  <!-- 外層容器：淺灰背景 -->
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="background-color: #f1f5f9;">
+    <tr>
+      <td align="center" style="padding: 20px 0 50px 0;">
+        
+        <!-- 卡片容器：純白背景、圓角、陰影 -->
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          
+          <!-- 1. Persona Image (大圖) -->
+          <tr>
+             <td bgcolor="#0f172a" style="padding: 0; background-color: #0f172a;">
+                <img src="{{ $('Webhook').item.json.body.quiz_result.persona_image_png }}" alt="Persona" style="width: 100%; height: auto; border: 0;" />
+             </td>
+          </tr>
+          
+          <!-- 2. Hero Text (深色背景：使用新金色 #edae26) -->
+          <tr>
+            <td bgcolor="#0f172a" style="background-color: #0f172a; padding: 30px 30px 40px 30px; text-align: left;">
+                <div style="display: inline-block; background-color: #2563eb; color: #ffffff; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 99px; text-transform: uppercase; margin-bottom: 12px;">Persona Analysis</div>
+                <h1 style="color: #ffffff; margin: 0 0 10px 0; font-size: 36px; font-weight: 900; line-height: 1.1;">{{ $('Webhook').item.json.body.quiz_result.persona_title }}</h1>
+                <!-- 新金色 #edae26 -->
+                <p style="color: #edae26; margin: 0; font-size: 18px; font-weight: 500; font-style: italic;">
+                   {{{ $('Webhook').item.json.body.ai_analysis.overview }}}
+                </p>
+            </td>
+          </tr>
+
+          <!-- 3. Content Section (白底區塊：重點使用新金色 #edae26) -->
+          <tr>
+             <td bgcolor="#ffffff" class="white-bg" style="background-color: #ffffff; padding: 40px 30px;">
+                
+                <!-- Tags (使用三層括號) -->
+                <div style="margin-bottom: 30px;">
+                    {{{ $('Webhook').item.json.body.quiz_result.tags_html }}}
+                </div>
+
+                <!-- 診斷報告文字區 -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 40px; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden;">
+                   <tr>
+                      <td bgcolor="#f8fafc" style="padding: 25px; background-color: #f8fafc;">
+                        <!-- [修正] 標題改為 新金色 #edae26 -->
+                        <h2 style="color: #edae26; margin: 0 0 15px 0; font-size: 18px; text-transform: uppercase; letter-spacing: 2px; font-weight: 900;">人格診斷報告</h2>
+                        <!-- 內文使用三層括號以保留 HTML 變色效果 -->
+                        <div class="dark-text" style="color: #1e293b; font-size: 16px; margin: 0; font-weight: bold; line-height: 1.8;">
+                            {{{ $('Webhook').item.json.body.ai_analysis.explanation }}}
+                        </div>
+                      </td>
+                   </tr>
+                </table>
+
+                <!-- 雷達圖區 (含分數標題的圖片) -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 40px; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden;">
+                   <tr>
+                      <!-- 移除 Padding:30px，改為 0，確保圖片滿版且無接縫 -->
+                      <td bgcolor="#ffffff" style="padding: 0; text-align: center; background-color: #ffffff;">
+                        <img src="{{ $('Webhook').item.json.body.quiz_result.chart_image_url }}" alt="Chart" style="width: 100%; max-width: 500px; height: auto; display: block; margin: 0 auto;" />
+                      </td>
+                   </tr>
+                </table>
+
+                <h3 class="dark-text" style="text-align: center; font-size: 24px; font-weight: 900; color: #0f172a; margin: 0 0 30px 0;">四大支柱深度剖析</h3>
+
+                <!-- Skin Card -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                   <tr>
+                      <td width="8" bgcolor="{{ $('Webhook').item.json.body.quiz_result.scores.skin.color }}" style="width: 8px;"></td>
+                      <td bgcolor="#f8fafc" style="padding: 20px; background-color: #f8fafc;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="padding-bottom: 10px;">
+                                    <h4 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0; display: inline-block;">🧴 面容氣色</h4>
+                                </td>
+                                <td align="right" style="padding-bottom: 10px;">
+                                    <span style="background-color: {{ $('Webhook').item.json.body.quiz_result.scores.skin.bg_color }}; color: {{ $('Webhook').item.json.body.quiz_result.scores.skin.text_color }}; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: bold;">
+                                        {{ $('Webhook').item.json.body.quiz_result.scores.skin.level }} ({{ $('Webhook').item.json.body.quiz_result.scores.skin.score }}/15)
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 500;">{{{ $('Webhook').item.json.body.ai_analysis.advice_skin }}}</p>
+                      </td>
+                   </tr>
+                </table>
+
+                <!-- Hair Card -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                   <tr>
+                      <td width="8" bgcolor="{{ $('Webhook').item.json.body.quiz_result.scores.hair.color }}" style="width: 8px;"></td>
+                      <td bgcolor="#f8fafc" style="padding: 20px; background-color: #f8fafc;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="padding-bottom: 10px;">
+                                    <h4 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0; display: inline-block;">💇‍♂️ 髮型駕馭</h4>
+                                </td>
+                                <td align="right" style="padding-bottom: 10px;">
+                                    <span style="background-color: {{ $('Webhook').item.json.body.quiz_result.scores.hair.bg_color }}; color: {{ $('Webhook').item.json.body.quiz_result.scores.hair.text_color }}; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: bold;">
+                                        {{ $('Webhook').item.json.body.quiz_result.scores.hair.level }} ({{ $('Webhook').item.json.body.quiz_result.scores.hair.score }}/15)
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 500;">{{{ $('Webhook').item.json.body.ai_analysis.advice_hair }}}</p>
+                      </td>
+                   </tr>
+                </table>
+
+                <!-- Style Card -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                   <tr>
+                      <td width="8" bgcolor="{{ $('Webhook').item.json.body.quiz_result.scores.style.color }}" style="width: 8px;"></td>
+                      <td bgcolor="#f8fafc" style="padding: 20px; background-color: #f8fafc;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="padding-bottom: 10px;">
+                                    <h4 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0; display: inline-block;">👔 穿搭策略</h4>
+                                </td>
+                                <td align="right" style="padding-bottom: 10px;">
+                                    <span style="background-color: {{ $('Webhook').item.json.body.quiz_result.scores.style.bg_color }}; color: {{ $('Webhook').item.json.body.quiz_result.scores.style.text_color }}; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: bold;">
+                                        {{ $('Webhook').item.json.body.quiz_result.scores.style.level }} ({{ $('Webhook').item.json.body.quiz_result.scores.style.score }}/15)
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 500;">{{{ $('Webhook').item.json.body.ai_analysis.advice_style }}}</p>
+                      </td>
+                   </tr>
+                </table>
+
+                <!-- Social Card -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+                   <tr>
+                      <td width="8" bgcolor="{{ $('Webhook').item.json.body.quiz_result.scores.social.color }}" style="width: 8px;"></td>
+                      <td bgcolor="#f8fafc" style="padding: 20px; background-color: #f8fafc;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td style="padding-bottom: 10px;">
+                                    <h4 style="font-size: 18px; font-weight: 900; color: #0f172a; margin: 0; display: inline-block;">📸 社群形象</h4>
+                                </td>
+                                <td align="right" style="padding-bottom: 10px;">
+                                    <span style="background-color: {{ $('Webhook').item.json.body.quiz_result.scores.social.bg_color }}; color: {{ $('Webhook').item.json.body.quiz_result.scores.social.text_color }}; padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: bold;">
+                                        {{ $('Webhook').item.json.body.quiz_result.scores.social.level }} ({{ $('Webhook').item.json.body.quiz_result.scores.social.score }}/15)
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="color: #1e293b; margin: 0; font-size: 15px; font-weight: 500;">{{{ $('Webhook').item.json.body.ai_analysis.advice_social }}}</p>
+                      </td>
+                   </tr>
+                </table>
+
+             </td>
+          </tr>
+
+          <!-- 4. Coach Summary (深色背景區：維持新金色 #edae26) -->
+          <tr>
+              <td bgcolor="#0f172a" style="background-color: #0f172a; color: #e2e8f0; padding: 0;">
+                  <img src="{{ $('Webhook').item.json.body.sales_copy.expert_image }}" alt="Coach" style="width: 100%; display: block;" />
+                  
+                  <div style="padding: 40px 30px; background-color: #0f172a;">
+                      <!-- 新金色 #edae26 -->
+                      <h3 style="color: #edae26; font-size: 24px; font-weight: 900; margin: 0 0 20px 0;">💡 教練總結</h3>
+                      <div style="color: #e2e8f0; font-size: 16px; margin-bottom: 20px; text-align: justify; font-weight: 500; line-height: 1.8;">
+                          {{{ $('Webhook').item.json.body.ai_analysis.coach_summary }}}
+                      </div>
+                      
+                      <!-- Your Next Step Separator -->
+                      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 40px 0;">
+                        <tr>
+                            <td width="30%" align="right" valign="middle"><div style="height: 1px; background-color: #334155; width: 100%;"></div></td>
+                            <td width="40%" align="center" valign="middle" style="padding: 0 5px;">
+                                <!-- 新金色 #edae26 -->
+                                <span style="display: inline-block; color: #edae26; font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; border: 1px solid rgba(237, 174, 38, 0.3); padding: 6px 12px; border-radius: 99px; background-color: rgba(255,255,255,0.05); white-space: nowrap;">Your Next Step</span>
+                            </td>
+                            <td width="30%" align="left" valign="middle"><div style="height: 1px; background-color: #334155; width: 100%;"></div></td>
+                        </tr>
+                      </table>
+                      
+                      <h4 style="text-align: center; color: #ffffff; font-size: 28px; font-weight: 900; margin: 0 0 30px 0;">形象是可以學習的技能</h4>
+
+                      <div style="color: #e2e8f0; font-size: 16px; margin-bottom: 30px; text-align: center; font-weight: 500; line-height: 1.8;">
+                          {{{ $('Webhook').item.json.body.sales_copy.sales_intro_html }}}
+                      </div>
+
+                      <div style="margin-bottom: 30px;">
+                          <!-- Feature 1 -->
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 10px;">
+                            <tr>
+                              <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 15px; text-align: center;">
+                                  <!-- 新金色 #edae26 -->
+                                  <div style="color: #edae26; font-size: 18px; font-weight: bold;">✓ 獨家 SOP</div>
+                                  <div style="color: #ffffff; font-size: 13px;">解決形象問題的實戰模組</div>
+                              </td>
+                            </tr>
+                          </table>
+                          <!-- Feature 2 -->
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 10px;">
+                            <tr>
+                              <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 15px; text-align: center;">
+                                  <!-- 新金色 #edae26 -->
+                                  <div style="color: #edae26; font-size: 18px; font-weight: bold;">✓ 底層邏輯</div>
+                                  <div style="color: #ffffff; font-size: 13px;">打造自己的最大魅力</div>
+                              </td>
+                            </tr>
+                          </table>
+                          <!-- Feature 3 -->
+                          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 10px;">
+                            <tr>
+                              <td bgcolor="#1e293b" style="background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 15px; text-align: center;">
+                                  <!-- 新金色 #edae26 -->
+                                  <div style="color: #edae26; font-size: 18px; font-weight: bold;">✓ 實戰陪跑</div>
+                                  <div style="color: #ffffff; font-size: 13px;">每週作業與教練親自點評</div>
+                              </td>
+                            </tr>
+                          </table>
+                      </div>
+
+                       <div style="color: #e2e8f0; font-size: 16px; margin-bottom: 20px; text-align: justify; font-weight: 500; line-height: 1.8;">
+                          {{{ $('Webhook').item.json.body.sales_copy.expert_desc_html }}}
+                      </div>
+
+                       <!-- Button: 使用新金色背景 #edae26 -->
+                       <a href="https://www.menspalais.com" style="display: block; width: 100%; background-color: #edae26; color: #0f172a; text-align: center; padding: 20px 0; border-radius: 50px; text-decoration: none; font-size: 20px; font-weight: 900; margin-top: 30px; box-shadow: 0 10px 15px -3px rgba(237, 174, 38, 0.3); border-bottom: 4px solid #b48218;">
+                          查看 5 週變身計畫
+                      </a>
+                      
+                      <p style="text-align: center; color: #edae26; margin-top: 24px; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">⚠️ 名額有限，優先卡位</p>
+                  </div>
+              </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td bgcolor="#ffffff" style="background-color: #ffffff; padding: 30px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #f1f5f9;">
+              <p style="margin: 0; font-weight: bold;">© 版權所有 男性形象教練 彭邦典</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
