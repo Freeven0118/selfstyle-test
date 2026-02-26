@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { QUESTIONS, OPTIONS, CATEGORY_INFO, PERSONAS, EXPERT_CONFIG, CATEGORY_IMAGES } from './constants';
+import { QUESTIONS, OPTIONS, CATEGORY_INFO, PERSONAS, EXPERT_CONFIG, CATEGORY_IMAGES, LOADING_TIPS } from './constants';
 import { Category } from './types';
 import Chart from 'chart.js/auto';
 
@@ -40,15 +40,22 @@ const App: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState(''); // 儲存使用者姓名
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [isResultUnlocked, setIsResultUnlocked] = useState(false); // 控制結果是否解鎖
 
   // Refs
   const aiFetchingRef = useRef(false); // 防止重複呼叫 AI
   const lastFetchTimeRef = useRef<number>(0); // 防止 React StrictMode 導致的瞬間雙重請求
   const radarChartRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstance = useRef<any>(null);
+  const dimensionsRef = useRef<HTMLDivElement | null>(null);
 
   // 用於邏輯的狀態 (不顯示於 UI)
   const [lastError, setLastError] = useState<string>('');
+  
+  // Loading Tips State
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
+  const [showTip, setShowTip] = useState(true);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   // ------------------------------------------------------------
   // 1. 偵測網址參數
@@ -64,13 +71,29 @@ const App: React.FC = () => {
     const emailParam = params.get('email');
     if (emailParam) {
         setUserEmail(emailParam);
+        setIsResultUnlocked(true); // 如果網址帶 email，直接解鎖
     }
   }, []);
+
+  // Loading Tips Animation Loop
+  useEffect(() => {
+    if (step === 'diagnosing' && !lastError) {
+      const interval = setInterval(() => {
+        setShowTip(false);
+        setTimeout(() => {
+          setCurrentTipIndex((prev) => (prev + 1) % LOADING_TIPS.length);
+          setShowTip(true);
+        }, 500); // Wait for fade out
+      }, 4000); // Change every 4 seconds
+      return () => clearInterval(interval);
+    }
+  }, [step, lastError]);
 
   // 文字格式化工具函數 (解析 **重點** 語法) - 用於 React 渲染
   // [修正] 預設 highlightClass 改為 'text-[#edae26]' (使用者指定的新金色)
   const renderFormattedText = (text: string, highlightClass: string = 'text-[#edae26]') => {
     if (!text) return null;
+    
     return text.split('**').map((part, index) => 
       index % 2 === 1 ? (
         <span key={index} className={`${highlightClass} font-black`}>
@@ -111,7 +134,7 @@ const App: React.FC = () => {
   const handleStart = () => {
     // 加入 try-catch 防護，防止 History API 在某些環境下報錯
     try {
-        if (window.history && window.history.pushState) {
+        if (window.history && typeof window.history.pushState === 'function') {
             const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
             window.history.replaceState({path:newurl},'',newurl);
         }
@@ -128,6 +151,7 @@ const App: React.FC = () => {
     setLastError('');
     setShowKeyInput(false);
     setEmailStatus('idle'); // 重置寄送狀態
+    setIsResultUnlocked(false); // 重置解鎖狀態
     aiFetchingRef.current = false;
     lastFetchTimeRef.current = 0;
   };
@@ -146,11 +170,23 @@ const App: React.FC = () => {
     const email = formData.get('email') as string;
     const name = formData.get('first_name') as string; 
     
-    if (email) setUserEmail(email);
-    if (name) setUserName(name);
+    if (!email) return;
 
-    // 2. 優先切換畫面 (Fire and Forget)
-    handleStart();
+    setUserEmail(email);
+    if (name) setUserName(name);
+    
+    // 解鎖結果
+    setIsResultUnlocked(true);
+
+    // 滾動到四大分析區塊
+    setTimeout(() => {
+        dimensionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+    // 觸發 Webhook 發送完整報告
+    if (aiAnalysis && localSummary) {
+        sendResultsToWebhook(email, name, aiAnalysis, localSummary);
+    }
 
     // 3. 背景發送資料到 Systeme.io
     if (actionUrl) {
@@ -303,17 +339,173 @@ const App: React.FC = () => {
     // --------------------------------------------------
     const BRAND_GOLD = '#edae26'; // [修正] 統一使用 #edae26
 
+    // --------------------------------------------------
+    // 生成 HTML Components (對應 n8n Gmail Node)
+    // --------------------------------------------------
+    
+    // 1. Dimensions Grid HTML
+    const dimensionsGridHtml = `
+      <table width="100%" border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td width="48%" valign="top">
+            <!-- Skin Card -->
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; border-left: 6px solid ${skinData.color}; overflow: hidden; margin-bottom: 15px;">
+                <div style="padding-left: 10px;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 16px; font-weight: 900; color: #0f172a;">🧴 面容氣色</span>
+                        <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${skinData.bg_color}; color: ${skinData.text_color}; padding: 2px 8px; border-radius: 99px;">${skinData.level}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.skinAnalysis, BRAND_GOLD)}</p>
+                </div>
+            </div>
+            
+            <!-- Style Card -->
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; border-left: 6px solid ${styleData.color}; overflow: hidden;">
+                <div style="padding-left: 10px;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 16px; font-weight: 900; color: #0f172a;">👔 穿搭策略</span>
+                        <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${styleData.bg_color}; color: ${styleData.text_color}; padding: 2px 8px; border-radius: 99px;">${styleData.level}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.styleAnalysis, BRAND_GOLD)}</p>
+                </div>
+            </div>
+          </td>
+          <td width="4%"></td>
+          <td width="48%" valign="top">
+            <!-- Hair Card -->
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; border-left: 6px solid ${hairData.color}; overflow: hidden; margin-bottom: 15px;">
+                <div style="padding-left: 10px;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 16px; font-weight: 900; color: #0f172a;">💇‍♂️ 髮型駕馭</span>
+                        <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${hairData.bg_color}; color: ${hairData.text_color}; padding: 2px 8px; border-radius: 99px;">${hairData.level}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.hairAnalysis, BRAND_GOLD)}</p>
+                </div>
+            </div>
+
+            <!-- Social Card -->
+            <div style="background-color: #f8fafc; padding: 15px; border-radius: 16px; border: 1px solid #e2e8f0; border-left: 6px solid ${socialData.color}; overflow: hidden;">
+                <div style="padding-left: 10px;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="font-size: 16px; font-weight: 900; color: #0f172a;">📸 社群形象</span>
+                        <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${socialData.bg_color}; color: ${socialData.text_color}; padding: 2px 8px; border-radius: 99px;">${socialData.level}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.socialAnalysis, BRAND_GOLD)}</p>
+                </div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    // 2. Coach Section HTML
+    const coachSectionHtml = `
+        <div style="background-color: #0f172a; border-radius: 24px; overflow: hidden; margin-top: 30px;">
+            <img src="${EXPERT_CONFIG.imageUrl}" style="width: 100%; display: block;" />
+            <div style="padding: 30px;">
+                <h3 style="color: ${BRAND_GOLD}; font-size: 22px; font-weight: 900; margin: 0 0 20px 0;">💡 教練總結</h3>
+                <div style="color: #e2e8f0; font-size: 16px; margin-bottom: 30px; line-height: 1.8;">
+                    ${convertToHtmlString(report.coachGeneralAdvice, BRAND_GOLD)}
+                </div>
+
+                <!-- Separator -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                    <tr>
+                        <td style="border-bottom: 1px solid #334155; width: 35%;"></td>
+                        <td style="text-align: center; color: ${BRAND_GOLD}; font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; padding: 0 10px;">YOUR NEXT STEP</td>
+                        <td style="border-bottom: 1px solid #334155; width: 35%;"></td>
+                    </tr>
+                </table>
+
+                <h4 style="text-align: center; color: #ffffff; font-size: 24px; font-weight: 900; margin: 0 0 20px 0;">從「知道」到「做到」</h4>
+                <div style="color: #cbd5e1; font-size: 15px; text-align: justify; margin-bottom: 30px; line-height: 1.6;">
+                    這份報告指出了你的盲點，但「知道」不等於「做到」。<span style="color: ${BRAND_GOLD}; font-weight: bold;">形象建立是你現在最有效的槓桿</span>，因為它能在短時間內產生明顯的視覺反饋與外界評價。只要你願意在細節上投入，你的社交機會與心理強度將會產生<span style="color: ${BRAND_GOLD}; font-weight: bold;">質的飛躍</span>。請從今天開始，把打理自己當作一場必要的戰鬥準備。
+                </div>
+
+                <!-- 3-Day Plan Card -->
+                <div style="background-color: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 25px 20px; margin-bottom: 30px;">
+                    <h5 style="color: ${BRAND_GOLD}; text-align: center; font-size: 20px; font-weight: 900; margin: 0 0 20px 0;">你的「3天形象急救計畫」</h5>
+                    
+                    <p style="color: #ffffff; text-align: center; font-size: 15px; margin: 0 0 25px 0; line-height: 1.6;">
+                        單看報告不會讓你變帥。為了幫你把這份診斷轉化為實際的吸引力，我準備了連續三天的「行動指南」寄給你：
+                    </p>
+                    
+                    <!-- Day 1 -->
+                    <div style="margin-bottom: 15px; background-color: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td width="30" valign="top" style="font-size: 20px;">🗓️</td>
+                                <td style="color: #e2e8f0; font-size: 15px; line-height: 1.5; padding-left: 10px;">
+                                    <span style="color: #ffffff; font-weight: bold;">明天 (Day 1)：</span>
+                                    整體形象的<span style="color: ${BRAND_GOLD}; font-weight: bold;">「止損第一步」</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- Day 2 -->
+                    <div style="margin-bottom: 15px; background-color: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td width="30" valign="top" style="font-size: 20px;">🗓️</td>
+                                <td style="color: #e2e8f0; font-size: 15px; line-height: 1.5; padding-left: 10px;">
+                                    <span style="color: #ffffff; font-weight: bold;">後天 (Day 2)：</span>
+                                    理工男也能懂的<span style="color: ${BRAND_GOLD}; font-weight: bold;">「萬用穿搭公式」</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <!-- Day 3 -->
+                    <div style="margin-bottom: 25px; background-color: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                            <tr>
+                                <td width="30" valign="top" style="font-size: 20px;">🗓️</td>
+                                <td style="color: #e2e8f0; font-size: 15px; line-height: 1.5; padding-left: 10px;">
+                                    <span style="color: #ffffff; font-weight: bold;">最後 (Day 3)：</span>
+                                    從「路人照片」變身<span style="color: ${BRAND_GOLD}; font-weight: bold;">「高配對形象」</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    
+                    <div style="text-align: center; border-top: 1px solid #334155; padding-top: 20px;">
+                        <p style="color: ${BRAND_GOLD}; font-size: 13px; font-weight: bold; margin: 0;">
+                            ⚠️ 請留意明天晚上的信件，這是你脫單的第一步。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Social Media Buttons -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="https://lin.ee/3V3tOsx" target="_blank" style="display: inline-block; margin-bottom: 15px; text-decoration: none;">
+                        <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f974627f8_69565d2473a52_6956598909c11_zh-Hant.png" style="height: 48px; width: auto; border: 0;" alt="加入 LINE 好友" />
+                    </a>
+                    <div style="text-align: center;">
+                        <a href="https://instagram.com/freeven.menspalais" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                            <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f9743b2f3_68bcafb31135a_ig.png" style="width: 40px; height: 40px; border: 0;" alt="Instagram" />
+                        </a>
+                        <a href="https://www.threads.net/@freeven.menspalais" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                            <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f97461c7f_695f34230d336_695f20025eaf2_icon2.png" style="width: 40px; height: 40px; border: 0;" alt="Threads" />
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
     // 準備要送出的資料，預先轉好 HTML 格式
     const payload = {
-        date: taiwanDate,
-        user: {
-            email: email,
-            name: name || '朋友',
-        },
+        submittedAt: new Date().toISOString(), // n8n GSheet 欄位: 提交時間
+        quiz_source: 'style-quiz', // n8n 欄位: quiz_source
+        name: name || '你', // n8n 欄位: 姓名
+        email: email, // n8n 欄位: Email
+        total_score: summaryData.totalScore, // n8n 欄位: 總分
+        
         quiz_result: {
-            total_score: summaryData.totalScore, // 數值仍保留，但 Email HTML 中不顯示文字，改用圖片
+            total_score: summaryData.totalScore,
             persona_id: normalizedId,
-            persona_title: personaData?.title || '風格路人甲',
+            persona_title: personaData?.title || '風格路人甲', // n8n 欄位: 人格原型, persona_type
             persona_subtitle: personaData?.subtitle || '潛力無限',
             persona_image_png: personaImagePng,
             chart_image_url: chartUrl,
@@ -325,16 +517,32 @@ const App: React.FC = () => {
                 social: socialData,
             }
         },
+        
+        // n8n 欄位映射:
+        // advice_appearance -> 面容氣色
+        // advice_social -> 髮型駕馭
+        // advice_action -> 穿搭策略
+        // advice_mindset -> 社群形象
+        // coach_summary -> AI完整建議
         ai_analysis: {
-            // 所有區域的高亮顏色統一為 BRAND_GOLD (#edae26)
             overview: convertToHtmlString(report.personaOverview || activePersona.subtitle, BRAND_GOLD), 
             explanation: convertToHtmlString(report.personaExplanation, BRAND_GOLD), 
-            advice_skin: convertToHtmlString(report.skinAnalysis, BRAND_GOLD), 
-            advice_hair: convertToHtmlString(report.hairAnalysis, BRAND_GOLD), 
-            advice_style: convertToHtmlString(report.styleAnalysis, BRAND_GOLD), 
-            advice_social: convertToHtmlString(report.socialAnalysis, BRAND_GOLD), 
+            
+            // Mapping to n8n expected keys
+            advice_appearance: convertToHtmlString(report.skinAnalysis, BRAND_GOLD), 
+            advice_social: convertToHtmlString(report.hairAnalysis, BRAND_GOLD), 
+            advice_action: convertToHtmlString(report.styleAnalysis, BRAND_GOLD), 
+            advice_mindset: convertToHtmlString(report.socialAnalysis, BRAND_GOLD), 
+            
             coach_summary: convertToHtmlString(report.coachGeneralAdvice, BRAND_GOLD) 
         },
+        
+        // HTML Components for Gmail
+        html_components: {
+            dimensions_grid: dimensionsGridHtml,
+            coach_section: coachSectionHtml
+        },
+
         sales_copy: {
             expert_image: EXPERT_CONFIG.imageUrl,
             sales_intro_html: convertToHtmlString(salesIntroText, BRAND_GOLD), 
@@ -404,18 +612,14 @@ const App: React.FC = () => {
     return { summary, totalScore };
   }, [step, answers]);
 
-  // 當結果出爐時，觸發 Webhook
+  // 當結果出爐時，切換步驟
   useEffect(() => {
     if (step === 'diagnosing' && aiAnalysis) {
       setFakeProgress(100);
       const timer = setTimeout(() => {
         setStep('result');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        if (userEmail && aiAnalysis && localSummary) {
-            sendResultsToWebhook(userEmail, userName, aiAnalysis, localSummary);
-        }
-
+        // 移除自動發送 Webhook，改為在表單提交後觸發
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -497,7 +701,7 @@ const App: React.FC = () => {
         1. 總分：${localSummary.totalScore}/60 (共4類，每類15分)
         2. 各維度分數：${JSON.stringify(localSummary.summary.map(s => ({ cat: s.category, score: s.score, level: s.level })))}
         3. 具體作答：${JSON.stringify(detailedData)}
-        4. 使用者姓名：${userName || '朋友'}
+        4. 使用者姓名：${userName || '你'}
 
         任務指令：
         請根據「詳細作答內容」與「分數分佈」，判定他最符合哪一個人格原型。請嚴格遵守下方的判定矩陣，避免過度將人歸類為路人甲。
@@ -532,6 +736,7 @@ const App: React.FC = () => {
         
         **語氣調整：**
         請扮演一位「溫暖、堅定且值得信賴的導師」。
+        請在分析與建議中，使用自然、流暢的第二人稱（你）來對話，不需要刻意填入名字，重點是讓對方感受到被理解與支持。
         1. **收斂攻擊性**：請絕對避免使用帶有嘲諷、羞辱感或過度嚴厲的譬喻（例如：不要說「難以下嚥」、「只模仿皮毛」這類讓人感到挫折的話）。
         2. **建設性視角**：請以「我看見了你的潛力，但可惜目前被 [問題點] 阻擋了光芒」的角度切入。一針見血是指「精準指出問題核心」，而不是「刺傷自尊」。
         3. **溫暖的專業**：請用正面、肯定的詞彙來包裹你的建議。告訴他，他現在的困境很正常，而你有一套方法可以帶他走出來。
@@ -545,7 +750,7 @@ const App: React.FC = () => {
           "hairAnalysis": "針對『髮型駕馭』的具體分析建議 (約 50 字)",
           "styleAnalysis": "針對『穿搭策略』的具體分析建議 (約 50 字)",
           "socialAnalysis": "針對『社群形象』的具體分析建議 (約 50 字)",
-          "coachGeneralAdvice": "教練的總結戰略建議 (約 200 字)。**請務必分成 2-3 個段落撰寫，不要寫成一大塊文字**，段落間請留空行，讓閱讀更輕鬆。**結尾必須嚴格包含此句**：「請記住，知道問題不等於能解決問題，形象的改造涉及到對自我的認識與系統化的打扮邏輯，若無系統性訓練很容易走彎路、花冤枉錢，你需要查看下方的『5週變身計畫』，讓我陪你把這塊原石磨出光彩。」"
+          "coachGeneralAdvice": "教練的總結戰略建議 (約 200 字)。**請務必分成 2-3 個段落撰寫，不要寫成一大塊文字**，段落間請留空行，讓閱讀更輕鬆。**結尾必須嚴格包含此句**：「一定要記得，知道問題不等於能解決問題，形象的改造涉及到對自我的認識與系統化的打扮邏輯，若無系統性訓練很容易走彎路、花冤枉錢，你需要查看下方的『**3天形象急救計畫**』，讓我陪你把這塊原石磨出光彩。」"
         }
       `;
 
@@ -710,49 +915,13 @@ const App: React.FC = () => {
              <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6950e2a881260_1.911.png" className="object-contain w-full h-full drop-shadow-2xl" />
           </div>
 
-          {/* 
-            --------------------------------------------------------
-            Systeme.io 表單區塊
-            使用 AJAX (fetch mode: no-cors) 提交，防止頁面跳轉
-            -------------------------------------------------------- 
-          */}
-          <div className="px-2 md:px-4 w-full relative z-20">
-            {/* 更新：背景改為 #ffffff，邊框改為 border-slate-100 */}
-            <div className="bg-[#ffffff] p-6 md:p-8 rounded-[2rem] shadow-2xl border border-slate-100 space-y-4">
-              <div className="text-center space-y-1 mb-4">
-                <h3 className="text-xl md:text-2xl font-black text-slate-900">立即開始檢測</h3>
-                <p className="text-sm md:text-base text-slate-500 font-bold">輸入 Email，測驗連結將同步寄送至您的信箱備份</p>
-              </div>
-              
-              <form 
-                method="post" 
-                action="https://systeme.io/embedded/37425881/subscription" 
-                className="space-y-3 md:space-y-4"
-                onSubmit={handleSystemeSubmit}
-              >
-                <input 
-                  type="text" 
-                  name="first_name" 
-                  placeholder="您的稱呼 (選填)"
-                  className="w-full bg-[#f8fafc] border border-slate-200 text-slate-900 text-lg md:text-xl rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none p-3 md:p-4 placeholder-slate-400 font-bold transition-all"
-                />
-                <input 
-                  type="email" 
-                  name="email" 
-                  required
-                  placeholder="您的 Email (必填)"
-                  className="w-full bg-[#f8fafc] border border-slate-200 text-slate-900 text-lg md:text-xl rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none p-3 md:p-4 placeholder-slate-400 font-bold transition-all"
-                />
-                
-                <button 
-                  type="submit" 
-                  className="w-full relative overflow-hidden bg-slate-900 hover:bg-black text-white font-black py-4 md:py-5 rounded-[2rem] text-xl md:text-2xl shadow-lg transition transform active:scale-95 text-center group animate-shimmer"
-                >
-                  <span className="relative z-10">進入測驗</span>
-                </button>
-              </form>
-              <p className="text-xs text-center text-slate-300">提交即代表同意接收相關形象資訊</p>
-            </div>
+          <div className="px-2 md:px-4 w-full relative z-20 flex justify-center">
+             <button 
+               onClick={handleStart}
+               className="w-full max-w-md relative overflow-hidden bg-slate-900 hover:bg-black text-white font-black py-5 md:py-6 rounded-[2rem] text-2xl md:text-3xl shadow-2xl transition transform active:scale-95 text-center group animate-shimmer"
+             >
+               <span className="relative z-10">立即開始檢測</span>
+             </button>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:gap-6 px-2 md:px-4">
@@ -865,6 +1034,13 @@ const App: React.FC = () => {
               <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden shadow-inner">
                 <div className="h-full bg-blue-600 transition-all duration-300 ease-out" style={{ width: `${fakeProgress}%` }}></div>
               </div>
+              
+              {/* Loading Tips */}
+              <div className="h-20 flex items-center justify-center px-4">
+                  <p className={`text-lg md:text-xl text-slate-600 font-bold transition-opacity duration-500 ${showTip ? 'opacity-100' : 'opacity-0'}`}>
+                      {LOADING_TIPS[currentTipIndex]}
+                  </p>
+              </div>
             </>
           ) : (
             // 更新：背景改為 #ffffff，邊框改為 border-slate-100
@@ -968,14 +1144,13 @@ const App: React.FC = () => {
                   <span key={tag} className="px-6 py-3 bg-slate-100 text-slate-800 rounded-full text-xl font-black border border-slate-200 animate-pop-in" style={{ animationDelay: `${i * 100 + 300}ms` }}># {tag}</span>
                 ))}
               </div>
-              {/* [修正] 人格診斷報告區塊：背景改為中性色 slate-50，標題改為新金色 (#edae26) 以便閱讀 */}
+              
+              {/* 人格診斷報告區塊：總是顯示完整內容 */}
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                 {/* 標題強制使用新金色 */}
                  <h5 className="text-[#edae26] font-black text-2xl uppercase tracking-widest mb-3">人格診斷報告</h5>
                  <div className="space-y-6">
                     {aiAnalysis.personaExplanation.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
                         <p key={idx} className="text-slate-800 text-lg md:text-xl leading-relaxed font-bold">
-                            {/* [修正] 白底區域改用新金色 (#edae26) 來強調重點 */}
                             {renderFormattedText(line, 'text-[#edae26]')}
                         </p>
                     ))}
@@ -986,12 +1161,11 @@ const App: React.FC = () => {
 
           <div className="px-4 md:px-0 space-y-10">
             {/* Radar Chart Card: #ffffff 背景，邊框改為 border-slate-100 */}
-            {/* [修正] 移除 Padding 以便讓圖表滿版，並移除上方的文字分數顯示 */}
             <div className="bg-[#ffffff] rounded-[3rem] shadow-xl border border-slate-100 text-center animate-slide-up overflow-hidden pb-6 md:pb-10" style={{ animationDelay: '200ms' }}>
                 <div className="h-[25rem] md:h-[30rem] w-full"><canvas ref={radarChartRef}></canvas></div>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 gap-6" ref={dimensionsRef}>
                 <div className="text-center py-4 animate-slide-up" style={{ animationDelay: '300ms' }}>
                     <h3 className="text-3xl font-black text-slate-900 tracking-tighter">四大形象支柱深度剖析</h3>
                     <p className="text-xl text-slate-400 font-bold"> 針對你的回答細節產生的專屬建議</p>
@@ -1011,112 +1185,259 @@ const App: React.FC = () => {
                             {item.level} ({item.score}分)
                             </span>
                         </div>
-                        <p className="text-lg md:text-xl text-slate-900 leading-relaxed pl-4 text-justify font-medium">
-                        {/* [修正] 白底區域改用新金色 (#edae26) 來強調重點 */}
-                        {renderFormattedText(getAiAnalysisForCategory(item.category), 'text-[#edae26]')}
-                        </p>
+                        
+                        {/* 內容區域：根據解鎖狀態顯示 */}
+                        {isResultUnlocked ? (
+                            <p className="text-lg md:text-xl text-slate-900 leading-relaxed pl-4 text-justify font-medium">
+                                {renderFormattedText(getAiAnalysisForCategory(item.category), 'text-[#edae26]')}
+                            </p>
+                        ) : (
+                            <div className="pl-4 relative overflow-hidden">
+                                <p className="text-lg md:text-xl text-slate-300 leading-relaxed text-justify font-medium blur-sm select-none">
+                                    {getAiAnalysisForCategory(item.category).slice(0, 30)}...
+                                    這是一段隱藏的建議文字，解鎖後可見。針對您的回答，我們提供了具體的改善方向與執行步驟。
+                                    這是一段隱藏的建議文字，解鎖後可見。針對您的回答，我們提供了具體的改善方向與執行步驟。
+                                </p>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/40 backdrop-blur-[2px]">
+                                    <span className="text-2xl mb-1">🔒</span>
+                                    <span className="text-slate-600 font-bold text-sm bg-white/80 px-3 py-1 rounded-full shadow-sm">請往下滑動解鎖</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     ))}
                 </div>
             </div>
 
-            {activePersona.id === 'charmer' ? (
+            {/* Coach Summary & Expert Card */}
+            {activePersona.id === 'charmer' && isResultUnlocked ? (
                 <div className="bg-gradient-to-br from-slate-900 to-black rounded-[3.5rem] shadow-2xl p-10 md:p-14 text-center space-y-8 animate-fade-in border border-slate-800">
-                <div className="text-6xl md:text-8xl">🏆</div>
-                <h4 className="text-3xl md:text-4xl font-black text-white">你已是頂級魅力家</h4>
-                <p className="text-slate-300 text-xl md:text-2xl font-bold">教練對你唯一的建議是：好好善用這份天賦。祝你一帆風順！</p>
+                    <div className="text-6xl md:text-8xl">🏆</div>
+                    <h4 className="text-3xl md:text-4xl font-black text-white">你已是頂級魅力家</h4>
+                    <p className="text-slate-300 text-xl md:text-2xl font-bold">教練對你唯一的建議是：好好善用這份天賦。祝你一帆風順！</p>
                 </div>
             ) : (
                 // Expert Card (Container): [恢復深色主題] bg-slate-900, border-slate-800
                 <div className="rounded-[3.5rem] shadow-2xl overflow-hidden border border-slate-800 flex flex-col bg-slate-900 animate-slide-up" style={{ animationDelay: '600ms' }}>
-                <div className="w-full relative">
-                    <img src={EXPERT_CONFIG.imageUrl} alt="Expert Coach" className="w-full h-auto block object-cover" />
-                </div>
-                {/* 背景改為 bg-slate-900，文字改為白色/淺灰 */}
-                <div className="bg-slate-900 p-8 md:p-12 space-y-8 flex-1">
-                    <div className="space-y-6">
-                    <div className="flex items-center space-x-3">
-                        <span className="text-3xl">💡</span>
-                        <h3 className="text-3xl font-black text-[#edae26] tracking-tight">教練總結</h3>
+                    <div className="w-full relative">
+                        <img src={EXPERT_CONFIG.imageUrl} alt="Expert Coach" className="w-full h-auto block object-cover" />
                     </div>
-                    <div className="space-y-6 md:space-y-8">
-                        {aiAnalysis.coachGeneralAdvice.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
-                        <p key={idx} className="text-xl md:text-2xl leading-loose font-bold text-slate-300 text-justify tracking-wide">
-                            {/* 深色背景維持使用新金色 (#edae26) */}
-                            {renderFormattedText(line, 'text-[#edae26]')}
-                        </p>
-                        ))}
-                    </div>
-                    
-                    <div className="py-8 space-y-6">
-                         {/* Next Step Separator: 深色版樣式 */}
-                         <div className="flex items-center space-x-4 w-full justify-center">
-                             <div className="h-px bg-slate-700 flex-1"></div>
-                             <span className="text-[#edae26] font-black tracking-widest uppercase text-sm border border-amber-500/30 px-4 py-1.5 rounded-full bg-slate-800/50 whitespace-nowrap">
-                                Your Next Step
-                             </span>
-                             <div className="h-px bg-slate-700 flex-1"></div>
-                         </div>
-                         <h4 className="text-center text-white font-bold text-4xl md:text-5xl tracking-tight mb-8">形象是可以學習的技能</h4>
-                    </div>
-
-                    <div className="space-y-8">
-                        <p className="text-xl md:text-2xl leading-relaxed font-bold text-slate-200 text-center">
-                            你真正需要的不是只變帥那一天的單次服務，<br />
-                            而是擁有<span className="text-[#edae26]">可立即套用的形象公式</span>，<br />能夠<span className="text-[#edae26]">展示自己最好的一面</span>。
-                        </p>
-                        
-                        <p className="text-xl md:text-2xl leading-relaxed font-medium text-[#ffffff] text-center py-4">
-                            我將這七年的實戰與教學經驗，簡化為好懂、好複製的系統化SOP，<br />
-                            正式名稱：「<span className="text-[#edae26] font-black text-2xl md:text-3xl">SOLAR戀愛形象系統</span>」。
-                        </p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {[
-                                { title: '獨家 SOP', desc: '一套能精準解決形象問題的實戰模組' },
-                                { title: '底層邏輯', desc: '能夠打造自己的最大魅力' },
-                                { title: '實戰陪跑', desc: '每週作業與教練親自點評' }
-                            ].map((feature, i) => (
-                                // Feature Card: 深色樣式
-                                <div key={i} className="bg-slate-800 border border-slate-700 p-4 rounded-2xl flex flex-col items-center text-center space-y-2 shadow-sm">
-                                    <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-900 flex items-center justify-center font-black">✓</div>
-                                    {/* [修正] 標題為品牌新金色，描述為純白色 */}
-                                    <h5 className="text-[#edae26] font-black text-xl">{feature.title}</h5>
-                                    <p className="text-white text-sm font-bold">{feature.desc}</p>
+                    {/* 背景改為 bg-slate-900，文字改為白色/淺灰 */}
+                    <div className="bg-slate-900 p-8 md:p-12 space-y-8 flex-1 relative">
+                        <div className="space-y-6">
+                            <div className="flex items-center space-x-3">
+                                <span className="text-3xl">💡</span>
+                                <h3 className="text-3xl font-black text-[#edae26] tracking-tight">教練總結</h3>
+                            </div>
+                            
+                            {isResultUnlocked ? (
+                                // 解鎖狀態：顯示完整內容
+                                <div className="space-y-6 md:space-y-8">
+                                    {aiAnalysis.coachGeneralAdvice.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
+                                    <p key={idx} className="text-xl md:text-2xl leading-loose font-bold text-slate-300 text-justify tracking-wide">
+                                        {renderFormattedText(line, 'text-[#edae26]')}
+                                    </p>
+                                    ))}
                                 </div>
-                            ))}
+                            ) : (
+                                // 未解鎖狀態：顯示前1段 + 模糊遮罩 + 表單
+                                <div className="relative">
+                                    <div className="space-y-6 md:space-y-8 select-none">
+                                        {/* 1. 清晰顯示前 1 段 */}
+                                        {aiAnalysis.coachGeneralAdvice.split('\n').filter(line => line.trim() !== '').slice(0, 1).map((line, idx) => (
+                                        <p key={idx} className="text-xl md:text-2xl leading-loose font-bold text-slate-300 text-justify tracking-wide">
+                                            {renderFormattedText(line, 'text-[#edae26]')}
+                                        </p>
+                                        ))}
+                                        
+                                        {/* 2. 後續內容模糊處理 */}
+                                        <div className="opacity-40 blur-[4px]">
+                                            {aiAnalysis.coachGeneralAdvice.split('\n').filter(line => line.trim() !== '').slice(1, 4).map((line, idx) => (
+                                            <p key={idx} className="text-xl md:text-2xl leading-loose font-bold text-slate-300 text-justify tracking-wide">
+                                                {renderFormattedText(line, 'text-[#edae26]')}
+                                            </p>
+                                            ))}
+                                            <p className="text-xl md:text-2xl leading-loose font-bold text-slate-300 text-justify tracking-wide">
+                                                這是一段隱藏的建議文字，包含具體的行動建議與執行步驟。解鎖後即可查看完整的教練分析報告。
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* 解鎖表單卡片 - 使用漸層背景遮擋 */}
+                                    <div className="absolute inset-0 z-10 flex items-end justify-center pb-4 md:pb-8 bg-gradient-to-b from-transparent via-slate-900/40 to-slate-900/90">
+                                        <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-2xl max-w-md w-full mx-auto text-center space-y-4 border border-slate-200 mb-4 md:mb-0">
+                                            <div className="text-4xl mb-2">🔒</div>
+                                            <h3 className="text-2xl font-black text-slate-900">解鎖完整行動建議</h3>
+                                            <p className="text-slate-500 font-bold text-sm md:text-base">
+                                                想知道如何突破現狀？<br/>
+                                                輸入稱呼與 Email，立即解鎖教練的深度分析與「3天形象急救計畫」。
+                                            </p>
+                                            
+                                            <form 
+                                                method="post" 
+                                                action="https://systeme.io/embedded/37425881/subscription" 
+                                                className="space-y-3 pt-2"
+                                                onSubmit={handleSystemeSubmit}
+                                            >
+                                                <input 
+                                                type="text" 
+                                                name="first_name" 
+                                                placeholder="您的稱呼 (選填)"
+                                                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-lg rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none p-3 placeholder-slate-400 font-bold"
+                                                />
+                                                <input 
+                                                type="email" 
+                                                name="email" 
+                                                required
+                                                placeholder="您的 Email (必填)"
+                                                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-lg rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none p-3 placeholder-slate-400 font-bold"
+                                                />
+                                                <button 
+                                                type="submit" 
+                                                className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-xl text-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2"
+                                                >
+                                                立即解鎖並查看結果 👉
+                                                </button>
+                                            </form>
+                                            <p className="text-[10px] text-slate-400">
+                                                我們和您一樣討厭垃圾信！您只會收到相關資訊，且隨時可以取消接收，請同意
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => setShowPrivacyPolicy(true)} 
+                                                    className="underline hover:text-slate-600 mx-1"
+                                                >
+                                                    [隱私權政策]
+                                                </button>
+                                                後再點擊送出
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
+                        
+                        {/* 只有解鎖後才顯示後續的銷售文案 */}
+                        {isResultUnlocked && (
+                            <>
+                                <div className="py-8 space-y-6">
+                                    {/* Next Step Separator: 深色版樣式 */}
+                                    <div className="flex items-center space-x-4 w-full justify-center">
+                                        <div className="h-px bg-slate-700 flex-1"></div>
+                                        <span className="text-[#edae26] font-black tracking-widest uppercase text-sm border border-amber-500/30 px-4 py-1.5 rounded-full bg-slate-800/50 whitespace-nowrap">
+                                            YOUR NEXT STEP
+                                        </span>
+                                        <div className="h-px bg-slate-700 flex-1"></div>
+                                    </div>
+                                    
+                                    {/* Main Title */}
+                                    <h4 className="text-center text-white font-bold text-4xl md:text-5xl tracking-tight mb-4">
+                                        從「知道」到「做到」
+                                    </h4>
+                                    
+                                    {/* Description */}
+                                    <p className="text-lg md:text-xl leading-relaxed text-slate-300 text-justify md:text-center px-4 font-medium">
+                                        這份報告指出了你的盲點，但「知道」不等於「做到」。
+                                        <span className="text-[#edae26] font-bold">形象建立是你現在最有效的槓桿</span>，
+                                        因為它能在短時間內產生明顯的視覺反饋與外界評價。
+                                        只要你願意在細節上投入，你的社交機會與心理強度將會產生
+                                        <span className="text-[#edae26] font-bold">質的飛躍</span>。
+                                        請從今天開始，把打理自己當作一場必要的戰鬥準備。
+                                    </p>
+                                    
+                                    {/* 3-Day Plan Card */}
+                                    <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 md:p-8 mt-8 shadow-lg backdrop-blur-sm">
+                                        <h5 className="text-[#edae26] text-center font-bold text-2xl md:text-3xl mb-6 tracking-wide">
+                                            你的「3天形象急救計畫」
+                                        </h5>
+                                        
+                                        <p className="text-white text-center text-lg md:text-xl mb-8 font-medium leading-relaxed">
+                                            單看報告不會讓你變帥。為了幫你把這份診斷轉化為實際的吸引力，我準備了連續三天的「行動指南」寄給你：
+                                        </p>
+                                        
+                                        <div className="space-y-6 max-w-2xl mx-auto">
+                                            <div className="flex items-start space-x-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                                <span className="text-2xl mt-1">🗓️</span>
+                                                <p className="text-slate-200 text-lg md:text-xl font-medium">
+                                                    <span className="font-bold text-white block md:inline mb-1 md:mb-0">明天 (Day 1)：</span>
+                                                    整體形象的<span className="text-[#edae26] font-bold">「止損第一步」</span>
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="flex items-start space-x-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                                <span className="text-2xl mt-1">🗓️</span>
+                                                <p className="text-slate-200 text-lg md:text-xl font-medium">
+                                                    <span className="font-bold text-white block md:inline mb-1 md:mb-0">後天 (Day 2)：</span>
+                                                    理工男也能懂的<span className="text-[#edae26] font-bold">「萬用穿搭公式」</span>
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="flex items-start space-x-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+                                                <span className="text-2xl mt-1">🗓️</span>
+                                                <p className="text-slate-200 text-lg md:text-xl font-medium">
+                                                    <span className="font-bold text-white block md:inline mb-1 md:mb-0">最後 (Day 3)：</span>
+                                                    從「路人照片」變身<span className="text-[#edae26] font-bold">「高配對形象」</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="mt-8 text-center pt-6 border-t border-slate-700/50">
+                                            <p className="text-[#edae26]/90 text-sm md:text-base font-bold flex items-center justify-center gap-2 tracking-wide">
+                                                <span>⚠️</span> 請留意明天晚上的信件，這是你脫單的第一步。
+                                            </p>
+                                        </div>
+                                    </div>
 
-                        {EXPERT_CONFIG.description.split('\n\n').map((paragraph, index) => (
-                            <p key={index} className="text-xl md:text-2xl leading-relaxed font-medium text-[#ffffff] text-justify">
-                                {renderFormattedText(paragraph, 'text-[#edae26]')}
-                            </p>
-                        ))}
+                                    {/* Social Media Buttons */}
+                                    <div className="flex flex-col items-center space-y-4 mt-8">
+                                        <a href="https://lin.ee/3V3tOsx" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+                                            <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f974627f8_69565d2473a52_6956598909c11_zh-Hant.png" alt="加入 LINE 好友" className="h-12 md:h-14 w-auto" />
+                                        </a>
+                                        <div className="flex space-x-6">
+                                            <a href="https://instagram.com/freeven.menspalais" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+                                                <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f9743b2f3_68bcafb31135a_ig.png" alt="Instagram" className="w-10 h-10 md:w-12 md:h-12" />
+                                            </a>
+                                            <a href="https://www.threads.net/@freeven.menspalais" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+                                                <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f97461c7f_695f34230d336_695f20025eaf2_icon2.png" alt="Threads" className="w-10 h-10 md:w-12 md:h-12" />
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
-
-                    </div>
-                    {/* 按鈕維持為 bg-[#edae26] (新金色) */}
-                    <button onClick={() => window.open('https://www.menspalais.com', '_blank')} className="group w-full bg-[#edae26] hover:bg-amber-400 text-slate-900 font-black py-4 md:py-6 rounded-[2rem] text-2xl md:text-3xl shadow-xl shadow-amber-900/20 flex items-center justify-center space-x-2 md:space-x-3 transition-all transform active:scale-95 mt-4 hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden">
-                       <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out skew-x-12"></span>
-                       
-                       <div className="flex flex-col items-center justify-center leading-none py-1">
-                           <span className="text-xl md:text-3xl font-black tracking-tight">查看 5 週變身計畫</span>
-                           <span className="text-sm md:text-lg font-bold opacity-90 mt-1 tracking-wide">(每月僅收 3 人)</span>
-                       </div>
-
-                       <svg className="w-8 h-8 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
-                    </button>
-                    {/* [修正] 使用 Flex 讓圖標與文字垂直對齊，解決偏移問題 */}
-                    <p className="flex items-center justify-center gap-2 text-slate-500 font-bold text-sm mt-6">
-                        <span>⚠️</span>
-                        <span>名額有限，優先卡位</span>
-                    </p>
-                </div>
                 </div>
             )}
             
-            <div className="flex flex-col space-y-4 pt-4 pb-8">
-               <button onClick={handleStart} className="text-slate-400 font-black uppercase tracking-widest hover:text-slate-600 transition-colors text-lg">重新進行測試</button>
+            <div className="flex flex-col space-y-4 pt-4 pb-8 items-center">
+               {isResultUnlocked && (
+                   <div className="flex flex-col items-center gap-3 mb-2 w-full max-w-xs">
+                       <button 
+                         onClick={() => sendResultsToWebhook(userEmail, userName, aiAnalysis, localSummary)}
+                         disabled={emailStatus === 'sending'}
+                         className="w-full bg-white hover:bg-slate-50 text-slate-700 font-bold py-3 px-6 rounded-xl shadow-sm border border-slate-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                       >
+                         {emailStatus === 'sending' ? (
+                            <>
+                                <span className="animate-spin">⏳</span> 發送中...
+                            </>
+                         ) : (
+                            <>
+                                <span>📩</span> 再次發送診斷報告
+                            </>
+                         )}
+                       </button>
+                       
+                       {emailStatus === 'success' && (
+                           <div className="text-green-600 text-sm font-bold flex items-center gap-1 animate-fade-in text-center">
+                               <span>✓</span> 報告已寄出，請檢查您的收件匣 (含垃圾郵件)
+                           </div>
+                       )}
+                   </div>
+               )}
+               
+               <button onClick={handleStart} className="text-slate-300 font-bold hover:text-slate-500 transition-colors text-base mt-4">
+                   重新進行測試
+               </button>
             </div>
           </div>
         </div>
@@ -1125,7 +1446,117 @@ const App: React.FC = () => {
       <footer className="w-full text-center py-10 text-slate-400 text-sm px-6 border-t border-slate-100 mt-auto space-y-2 bg-slate-50">
         <p className="font-bold">© 版權所有 男性形象教練 彭邦典</p>
         <p>本測驗由 AI 輔助生成 ，不涉及任何心理治療或精神診斷，測驗結果僅供參考。</p>
+        <button 
+          onClick={() => setShowPrivacyPolicy(true)}
+          className="text-xs text-slate-300 hover:text-slate-500 underline decoration-slate-300 underline-offset-2 transition-colors pt-2 block mx-auto"
+        >
+          隱私權政策
+        </button>
       </footer>
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyPolicy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowPrivacyPolicy(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 md:p-8 relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setShowPrivacyPolicy(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            
+            <h3 className="text-2xl font-black text-slate-900 mb-6 text-center">隱私權政策</h3>
+            
+            <div className="space-y-6 text-slate-600 text-sm leading-relaxed text-justify">
+              <section>
+                <p>歡迎您來到 Menspalais（以下簡稱「本網站」）。我們非常重視您的隱私權，並承諾依據中華民國《個人資料保護法》及相關法令規定，保護您的個人資料。為了讓您能夠安心使用本網站的各項服務與資訊，特此向您說明本網站的隱私權保護政策，以保障您的權益，請您詳閱下列內容：</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">一、 個人資料的蒐集目的與類別</h4>
+                <p>當您造訪本網站或使用我們提供的服務（例如：訂閱電子報、填寫表單、預約會談）時，我們將視該服務功能性質，請您提供必要的個人資料。</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1">
+                  <li><strong>蒐集目的：</strong>包含但不限於客戶管理與服務、行銷（包含寄送電子報及相關優惠資訊）、網站流量與使用者行為分析、以及提供各項優化服務。</li>
+                  <li><strong>蒐集類別：</strong>
+                    <ul className="list-circle pl-5 mt-1 space-y-1">
+                      <li>個人識別資訊：如姓名、電子郵件地址（Email）等。</li>
+                      <li>網站使用數據：如 IP 位址、使用時間、使用的瀏覽器、瀏覽及點選資料紀錄、Cookie 等（此類資料主要用於網站流量分析與服務提升，不會和特定個人聯繫）。</li>
+                    </ul>
+                  </li>
+                </ul>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">二、 個人資料利用之期間、地區、對象及方式</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>期間：</strong>本網站營運期間、特定目的存續期間，或依法令所訂之保存年限。當您要求刪除或取消訂閱時，我們將依規停止蒐集、處理或利用您的個人資料。</li>
+                  <li><strong>地區：</strong>您的個人資料將用於本網站營運地區及我們所使用的第三方服務平台（如 Systeme.io）伺服器所在地區。</li>
+                  <li><strong>對象：</strong>本網站及協助我們提供服務的第三方合作夥伴（如電子報發送系統、網站分析工具）。</li>
+                  <li><strong>方式：</strong>以自動化機器或其他非自動化之方式，進行資料的蒐集、處理與利用（包含電子郵件通知、行銷資訊發送等）。</li>
+                </ul>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">三、 資訊分享與揭露</h4>
+                <p>我們承諾絕不將您的個人資料出售、交換或出租給任何其他團體、個人或私人企業。您的資料僅會在以下情況下進行必要處理：</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1">
+                  <li><strong>使用第三方服務：</strong>為提供您完善的服務，您的資料將儲存並處理於 Systeme.io 等具備嚴格安全標準的第三方服務平台，該平台亦受嚴格的隱私權規範約束。</li>
+                  <li><strong>法規要求：</strong>配合司法單位合法的調查，或依法令相關規定需要揭露時。</li>
+                </ul>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">四、 您擁有的個資權利（個資法第 3 條）</h4>
+                <p>針對您交付予本網站的個人資料，您依法可隨時向我們行使以下權利：</p>
+                <ul className="list-disc pl-5 mt-2 space-y-1">
+                  <li>查詢或請求閱覽。</li>
+                  <li>請求製給複製本。</li>
+                  <li>請求補充或更正。</li>
+                  <li>請求停止蒐集、處理或利用。</li>
+                  <li>請求刪除。</li>
+                </ul>
+                <p className="mt-2"><strong>退訂機制：</strong>若您希望停止接收我們的電子報或行銷郵件，您可以隨時點擊信件底部的「取消訂閱（Unsubscribe）」連結，我們將立即從發送名單中移除您的信箱。</p>
+                <p>若您欲行使上述其他權利，請隨時透過我們的客服信箱與我們聯繫，我們將盡速為您處理。</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">五、 不提供個人資料所致權益之影響</h4>
+                <p>您可自由選擇是否提供個人資料。若您拒絕提供特定服務所需的必要個人資料（例如未填寫正確的 Email），本網站將可能無法為您提供完整的服務（例如無法成功訂閱電子報或安排會談），敬請見諒。</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">六、 Cookie 技術與使用</h4>
+                <p>為了提供您最佳的服務，本網站會在您的電腦中放置並取用我們的 Cookie。Cookie 是網站伺服器用來和使用者瀏覽器進行溝通的一種技術，能為您提供更個人化的體驗。</p>
+                <p className="mt-2"><strong>您的選擇權：</strong>若您不願接受 Cookie 的寫入，您可在您使用的瀏覽器功能項中設定隱私權等級為高，即可拒絕 Cookie 的寫入，但這可能會導致網站某些功能無法正常執行。</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">七、 未成年人保護</h4>
+                <p>本網站之服務並非專為未成年人（未滿 18 歲）設計。我們不會在知情的情況下，主動蒐集未成年人的個人資料。若您是未成年人，請在您的法定代理人或監護人陪同與同意下，再使用本網站之服務。</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">八、 隱私權政策之修改</h4>
+                <p>本網站保留隨時修改本隱私權政策的權利，以因應社會環境及法令的變遷與科技的進步。政策修改後將直接發布於本網站上，重大變更時我們將透過網站公告或電子郵件通知您。建議您定期檢閱本政策，以確保了解我們最新的隱私權保護措施。</p>
+              </section>
+
+              <section>
+                <h4 className="font-bold text-slate-800 text-base mb-2">九、 聯絡我們</h4>
+                <p>如果您對本隱私權政策、您的個人資料處理方式，或有任何與隱私權相關的疑問，歡迎隨時透過以下電子郵件聯繫我們：<a href="mailto:freeven@menspalais.com" className="text-blue-600 hover:underline">freeven@menspalais.com</a></p>
+              </section>
+            </div>
+            
+            <div className="mt-8 text-center">
+              <button 
+                onClick={() => setShowPrivacyPolicy(false)}
+                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition-colors shadow-lg active:scale-95 transform transition-transform"
+              >
+                我已了解
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

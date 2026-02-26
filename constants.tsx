@@ -53,11 +53,11 @@ export const QUESTIONS: Question[] = [
 ];
 
 export const OPTIONS = [
-  { label: '非常符合', value: 3 },
-  { label: '有點符合', value: 2 },
-  { label: '不太符合', value: 1 },
-  { label: '完全沒有', value: 0 },
   { label: '我不確定', value: -1 },
+  { label: '完全沒有', value: 0 },
+  { label: '不太符合', value: 1 },
+  { label: '有點符合', value: 2 },
+  { label: '非常符合', value: 3 },
 ];
 
 // 4. 人格結果設定 (調整為形象導向)
@@ -146,3 +146,13 @@ export const CATEGORY_INFO: Record<Category, { description: string; suggestions:
     }
   }
 };
+
+export const LOADING_TIPS = [
+  "💡 眉毛決定了男人 70% 的精氣神，定期修眉是變帥的第一步。",
+  "💡 衣服的「版型」比品牌更重要，合身是穿搭的基礎。",
+  "💡 每天喝水 2000cc，是改善膚質最便宜也最有效的方法。",
+  "💡 髮型需要配合臉型，不是流行什麼就剪什麼。",
+  "💡 乾淨的指甲與鞋子，是女生觀察細節的重點。",
+  "💡 建立個人風格需要時間，模仿是最好的開始。",
+  "💡 質感來自於細節，手錶與飾品能瞬間提升穿搭層次。"
+];
