@@ -437,7 +437,7 @@ const App: React.FC = () => {
                                 <td width="30" valign="top" style="font-size: 20px;">🗓️</td>
                                 <td style="color: #e2e8f0; font-size: 15px; line-height: 1.5; padding-left: 10px;">
                                     <span style="color: #ffffff; font-weight: bold;">明天 (Day 1)：</span>
-                                    整體形象的<span style="color: ${BRAND_GOLD}; font-weight: bold;">「止損第一步」</span>
+                                    整體形象的\n<span style="color: ${BRAND_GOLD}; font-weight: bold;">「止損第一步」</span>
                                 </td>
                             </tr>
                         </table>
