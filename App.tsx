@@ -437,7 +437,7 @@ const App: React.FC = () => {
                                 <td width="30" valign="top" style="font-size: 20px;">🗓️</td>
                                 <td style="color: #e2e8f0; font-size: 15px; line-height: 1.5; padding-left: 10px;">
                                     <span style="color: #ffffff; font-weight: bold;">明天 (Day 1)：</span>
-                                    整體形象的\n<span style="color: ${BRAND_GOLD}; font-weight: bold;">「止損第一步」</span>
+                                    整體形象的<span style="color: ${BRAND_GOLD}; font-weight: bold;">「止損第一步」</span>
                                 </td>
                             </tr>
                         </table>
@@ -673,11 +673,12 @@ const App: React.FC = () => {
         return;
     }
 
-    const apiKeyToUse = overrideKey || customApiKey || process.env.GEMINI_API_KEY;
+    // 嘗試多種來源取得 API Key (支援 Vercel 環境變數與 Vite 標準變數)
+    const apiKeyToUse = overrideKey || customApiKey || process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
 
     if (!apiKeyToUse) {
       console.error("API Key is missing.");
-      setLastError("系統設定：請輸入 API Key");
+      setLastError("系統設定：未偵測到 API Key (請檢查 Vercel 環境變數是否勾選 Preview/Production)");
       setShowKeyInput(true);
       setIsAiLoading(false);
       aiFetchingRef.current = false;
@@ -755,7 +756,7 @@ const App: React.FC = () => {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
           responseMimeType: 'application/json'
