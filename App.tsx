@@ -482,10 +482,10 @@ const App: React.FC = () => {
                         <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f974627f8_69565d2473a52_6956598909c11_zh-Hant.png" style="height: 48px; width: auto; border: 0;" alt="加入 LINE 好友" />
                     </a>
                     <div style="text-align: center;">
-                        <a href="https://instagram.com/freeven.menspalais" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                        <a href="https://instagram.com/freeven.coach" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
                             <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f9743b2f3_68bcafb31135a_ig.png" style="width: 40px; height: 40px; border: 0;" alt="Instagram" />
                         </a>
-                        <a href="https://www.threads.net/@freeven.menspalais" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                        <a href="https://www.threads.net/@freeven.coach" target="_blank" style="display: inline-block; margin: 0 10px; text-decoration: none;">
                             <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f97461c7f_695f34230d336_695f20025eaf2_icon2.png" style="width: 40px; height: 40px; border: 0;" alt="Threads" />
                         </a>
                     </div>
@@ -1152,7 +1152,7 @@ const App: React.FC = () => {
                  <div className="space-y-6">
                     {aiAnalysis.personaExplanation.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
                         <p key={idx} className="text-slate-800 text-lg md:text-xl leading-relaxed font-bold">
-                            {renderFormattedText(line, 'text-[#edae26]')}
+                            {renderFormattedText(line, 'text-[#edae26]')}freeven.menspalais
                         </p>
                     ))}
                  </div>
@@ -1394,10 +1394,10 @@ const App: React.FC = () => {
                                             <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f974627f8_69565d2473a52_6956598909c11_zh-Hant.png" alt="加入 LINE 好友" className="h-12 md:h-14 w-auto" />
                                         </a>
                                         <div className="flex space-x-6">
-                                            <a href="https://instagram.com/freeven.menspalais" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+                                            <a href="https://instagram.com/freeven.coach" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
                                                 <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f9743b2f3_68bcafb31135a_ig.png" alt="Instagram" className="w-10 h-10 md:w-12 md:h-12" />
                                             </a>
-                                            <a href="https://www.threads.net/@freeven.menspalais" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
+                                            <a href="https://www.threads.net/@freeven.coach" target="_blank" rel="noopener noreferrer" className="hover:opacity-90 transition-opacity">
                                                 <img src="https://d1yei2z3i6k35z.cloudfront.net/2452254/6965f97461c7f_695f34230d336_695f20025eaf2_icon2.png" alt="Threads" className="w-10 h-10 md:w-12 md:h-12" />
                                             </a>
                                         </div>
