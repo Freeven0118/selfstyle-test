@@ -525,7 +525,7 @@ const App: React.FC = () => {
         // advice_mindset -> 社群形象
         // coach_summary -> AI完整建議
         ai_analysis: {
-            overview: convertToHtmlString(report.personaOverview || activePersona.subtitle, BRAND_GOLD), 
+            overview: convertToHtmlString(report.personaOverview || personaData.subtitle, BRAND_GOLD),
             explanation: convertToHtmlString(report.personaExplanation, BRAND_GOLD), 
             
             // Mapping to n8n expected keys
@@ -756,7 +756,7 @@ const App: React.FC = () => {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.7-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json'
@@ -1152,7 +1152,7 @@ const App: React.FC = () => {
                  <div className="space-y-6">
                     {aiAnalysis.personaExplanation.split('\n').filter(line => line.trim() !== '').map((line, idx) => (
                         <p key={idx} className="text-slate-800 text-lg md:text-xl leading-relaxed font-bold">
-                            {renderFormattedText(line, 'text-[#edae26]')}freeven.menspalais
+                            {renderFormattedText(line, 'text-[#edae26]')}
                         </p>
                     ))}
                  </div>
