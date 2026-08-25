@@ -660,6 +660,16 @@ const App: React.FC = () => {
     }
   }, [step, aiAnalysis]);
 
+  // 清理 AI 回傳的 JSON 文字：移除 markdown 圍欄、擷取最外層大括號範圍，
+  // 避免模型偶發夾帶多餘字元導致 JSON.parse 失敗
+  const cleanJsonText = (raw: string) => {
+    let t = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    const start = t.indexOf('{');
+    const end = t.lastIndexOf('}');
+    if (start >= 0 && end > start) t = t.slice(start, end + 1);
+    return t;
+  };
+
   // 建立 AI 分析 Prompt（runDiagnosis 與 sendResultsToWebhook 共用，
   // 確保 n8n 伺服器端重試時使用與前端完全相同的 Prompt）
   const buildAiPrompt = (summaryData: any, nameOverride?: string) => {
@@ -797,18 +807,30 @@ const App: React.FC = () => {
       
       const prompt = buildAiPrompt(localSummary);
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json'
+      // 最多嘗試 2 次：偶發的 JSON 格式瑕疵或暫時性錯誤，自動重試一次
+      let parsedData: AiReport | null = null;
+      let lastAttemptError: any = null;
+      for (let attempt = 0; attempt < 2 && !parsedData; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.5-flash',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json'
+            }
+          });
+
+          const text = response.text;
+          if (!text) throw new Error("Empty response from Gemini");
+
+          parsedData = JSON.parse(cleanJsonText(text)) as AiReport;
+        } catch (attemptErr) {
+          lastAttemptError = attemptErr;
+          console.warn(`AI 第 ${attempt + 1} 次嘗試失敗:`, attemptErr);
         }
-      });
+      }
+      if (!parsedData) throw lastAttemptError;
 
-      const text = response.text;
-      if (!text) throw new Error("Empty response from Gemini");
-
-      const parsedData = JSON.parse(text) as AiReport;
       setAiAnalysis({ ...parsedData, aiStatus: 'success' });
 
     } catch (e: any) {
