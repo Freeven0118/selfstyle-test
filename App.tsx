@@ -18,7 +18,8 @@ interface AiReport {
   hairAnalysis: string;     // 對應 髮型駕馭
   styleAnalysis: string;    // 對應 穿搭策略
   socialAnalysis: string;   // 對應 社群形象
-  coachGeneralAdvice: string; 
+  coachGeneralAdvice: string;
+  aiStatus?: 'success' | 'fallback'; // 標記本次報告是 AI 生成還是基礎 fallback
 }
 
 const App: React.FC = () => {
@@ -343,8 +344,8 @@ const App: React.FC = () => {
     // 生成 HTML Components (對應 n8n Gmail Node)
     // --------------------------------------------------
     
-    // 1. Dimensions Grid HTML
-    const dimensionsGridHtml = `
+    // 1. Dimensions Grid HTML（模板函數：實際內容與 n8n 重試模板共用同一版型）
+    const buildDimensionsGridHtml = (skinHtml: string, hairHtml: string, styleHtml: string, socialHtml: string) => `
       <table width="100%" border="0" cellspacing="0" cellpadding="0">
         <tr>
           <td width="48%" valign="top">
@@ -355,7 +356,7 @@ const App: React.FC = () => {
                         <span style="font-size: 16px; font-weight: 900; color: #0f172a;">🧴 面容氣色</span>
                         <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${skinData.bg_color}; color: ${skinData.text_color}; padding: 2px 8px; border-radius: 99px;">${skinData.level}</span>
                     </div>
-                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.skinAnalysis, BRAND_GOLD)}</p>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${skinHtml}</p>
                 </div>
             </div>
             
@@ -366,7 +367,7 @@ const App: React.FC = () => {
                         <span style="font-size: 16px; font-weight: 900; color: #0f172a;">👔 穿搭策略</span>
                         <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${styleData.bg_color}; color: ${styleData.text_color}; padding: 2px 8px; border-radius: 99px;">${styleData.level}</span>
                     </div>
-                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.styleAnalysis, BRAND_GOLD)}</p>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${styleHtml}</p>
                 </div>
             </div>
           </td>
@@ -379,7 +380,7 @@ const App: React.FC = () => {
                         <span style="font-size: 16px; font-weight: 900; color: #0f172a;">💇‍♂️ 髮型駕馭</span>
                         <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${hairData.bg_color}; color: ${hairData.text_color}; padding: 2px 8px; border-radius: 99px;">${hairData.level}</span>
                     </div>
-                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.hairAnalysis, BRAND_GOLD)}</p>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${hairHtml}</p>
                 </div>
             </div>
 
@@ -390,22 +391,28 @@ const App: React.FC = () => {
                         <span style="font-size: 16px; font-weight: 900; color: #0f172a;">📸 社群形象</span>
                         <span style="float: right; font-size: 12px; font-weight: bold; background-color: ${socialData.bg_color}; color: ${socialData.text_color}; padding: 2px 8px; border-radius: 99px;">${socialData.level}</span>
                     </div>
-                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${convertToHtmlString(report.socialAnalysis, BRAND_GOLD)}</p>
+                    <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.5;">${socialHtml}</p>
                 </div>
             </div>
           </td>
         </tr>
       </table>
     `;
+    const dimensionsGridHtml = buildDimensionsGridHtml(
+        convertToHtmlString(report.skinAnalysis, BRAND_GOLD),
+        convertToHtmlString(report.hairAnalysis, BRAND_GOLD),
+        convertToHtmlString(report.styleAnalysis, BRAND_GOLD),
+        convertToHtmlString(report.socialAnalysis, BRAND_GOLD)
+    );
 
-    // 2. Coach Section HTML
-    const coachSectionHtml = `
+    // 2. Coach Section HTML（模板函數：實際內容與 n8n 重試模板共用同一版型）
+    const buildCoachSectionHtml = (coachHtml: string) => `
         <div style="background-color: #0f172a; border-radius: 24px; overflow: hidden; margin-top: 30px;">
             <img src="${EXPERT_CONFIG.imageUrl}" style="width: 100%; display: block;" />
             <div style="padding: 30px;">
                 <h3 style="color: ${BRAND_GOLD}; font-size: 22px; font-weight: 900; margin: 0 0 20px 0;">💡 教練總結</h3>
                 <div style="color: #e2e8f0; font-size: 16px; margin-bottom: 30px; line-height: 1.8;">
-                    ${convertToHtmlString(report.coachGeneralAdvice, BRAND_GOLD)}
+                    ${coachHtml}
                 </div>
 
                 <!-- Separator -->
@@ -493,6 +500,30 @@ const App: React.FC = () => {
             </div>
         </div>
     `;
+    const coachSectionHtml = buildCoachSectionHtml(convertToHtmlString(report.coachGeneralAdvice, BRAND_GOLD));
+
+    // --------------------------------------------------
+    // AI 狀態、原始作答與 n8n 重試材料
+    // --------------------------------------------------
+    const aiStatusValue = report.aiStatus || 'success';
+
+    // 20 題原始作答（供 Google Sheet 記錄與人工/自動重跑 AI 使用）
+    const rawAnswers = QUESTIONS.map(q => ({
+        id: q.id,
+        category: q.category,
+        question: q.text,
+        answer_value: answers[q.id] ?? null,
+        answer_label: OPTIONS.find(o => o.value === answers[q.id])?.label || '未答'
+    }));
+
+    // AI 失敗時，提供 n8n 伺服器端重試所需的完整材料：
+    // 與前端一致的 Prompt + 帶佔位符的 Email HTML 模板
+    const aiRetryData = aiStatusValue === 'fallback' ? {
+        prompt: buildAiPrompt(summaryData, name) +
+            `\n\n【系統補充】人格原型已由系統判定為 id: "${normalizedId}"（${personaData.title}），回傳 JSON 的 selectedPersonaId 請填入 "${normalizedId}"，並以此人格原型為前提撰寫所有分析。`,
+        dimensions_grid_template: buildDimensionsGridHtml('__SKIN__', '__HAIR__', '__STYLE__', '__SOCIAL__'),
+        coach_section_template: buildCoachSectionHtml('__COACH__')
+    } : null;
 
     // 準備要送出的資料，預先轉好 HTML 格式
     const payload = {
@@ -501,7 +532,11 @@ const App: React.FC = () => {
         name: name || '你', // n8n 欄位: 姓名
         email: email, // n8n 欄位: Email
         total_score: summaryData.totalScore, // n8n 欄位: 總分
-        
+
+        ai_status: aiStatusValue,   // n8n 欄位: ai_status ('success' | 'fallback')
+        raw_answers: rawAnswers,    // n8n 欄位: 原始作答（20 題完整紀錄）
+        ...(aiRetryData ? { ai_retry: aiRetryData } : {}), // AI 失敗時才附上重試材料
+
         quiz_result: {
             total_score: summaryData.totalScore,
             persona_id: normalizedId,
@@ -625,6 +660,76 @@ const App: React.FC = () => {
     }
   }, [step, aiAnalysis]);
 
+  // 建立 AI 分析 Prompt（runDiagnosis 與 sendResultsToWebhook 共用，
+  // 確保 n8n 伺服器端重試時使用與前端完全相同的 Prompt）
+  const buildAiPrompt = (summaryData: any, nameOverride?: string) => {
+    const detailedData = QUESTIONS.map(q => ({
+      category: q.category,
+      question: q.text,
+      answer: OPTIONS.find(o => o.value === answers[q.id])?.label || '未答'
+    }));
+
+    return `
+        你現在是專業男性形象教練「彭邦典」。這是一位 25-35 歲男性的「形象力檢測」測驗結果報告。
+
+        數據：
+        1. 總分：${summaryData.totalScore}/60 (共4類，每類15分)
+        2. 各維度分數：${JSON.stringify(summaryData.summary.map((s: any) => ({ cat: s.category, score: s.score, level: s.level })))}
+        3. 具體作答：${JSON.stringify(detailedData)}
+        4. 使用者姓名：${nameOverride || userName || '你'}
+
+        任務指令：
+        請根據「詳細作答內容」與「分數分佈」，判定他最符合哪一個人格原型。請嚴格遵守下方的判定矩陣，避免過度將人歸類為路人甲。
+
+        **人格判定邏輯矩陣 (請優先判斷)：**
+
+        1. **理論派觀察家 (sage)** [高優先判斷]：
+           - 特徵：**知行不合一**。
+           - 判斷依據：請檢查他的作答。若他在「知識型/觀念型」題目（關鍵字：我知道、我清楚、我了解）選「非常符合/有點符合」，但在「實作型/習慣型」題目（關鍵字：我有固定、我會定期、重現造型）選「不太符合/完全沒有」。這代表他懂理論但沒做到。
+
+        2. **半成品帥哥 (statue)**：
+           - 特徵：**遠看可以，近看破功**。
+           - 判斷依據：「穿搭策略」或「髮型駕馭」分數較高（綠燈或高標黃燈），但「面容氣色」分數偏低（紅燈）。代表他會打扮，但皮膚細節或眉毛雜毛沒處理好。
+
+        3. **風格迷航者 (hustler)**：
+           - 特徵：**用力過猛**。
+           - 判斷依據：「穿搭策略」得分不低，但可能在「風格系統」或「購物邏輯」題選了低分；或者總分中等，但社群形象分數極低（代表審美未具象化）。
+
+        4. **全方位質感男神 (charmer)**：
+           - 判斷依據：總分 > 48，且四大維度皆無紅燈。作答幾乎都是「非常符合」。
+
+        5. **形象重塑者 (pioneer)**：
+           - 判斷依據：總分 < 24，或四大維度中有 3 個以上是紅燈。代表各方面都還是一張白紙。
+
+        6. **乾淨的路人甲 (neighbor)** [預設值]：
+           - 判斷依據：若 **不符合** 上述任何特徵。各維度分數非常平均，沒有特別的高分項，也沒有致命低分，作答大多落在「有點符合」或「不太符合」的中間地帶。
+
+        ---
+
+        **寫作風格重點 (重要)：**
+        請使用 \`**重點文字**\` 來標記關鍵建議，系統會自動高亮。
+
+        **語氣調整：**
+        請扮演一位「溫暖、堅定且值得信賴的導師」。
+        請在分析與建議中，使用自然、流暢的第二人稱（你）來對話，不需要刻意填入名字，重點是讓對方感受到被理解與支持。
+        1. **收斂攻擊性**：請絕對避免使用帶有嘲諷、羞辱感或過度嚴厲的譬喻（例如：不要說「難以下嚥」、「只模仿皮毛」這類讓人感到挫折的話）。
+        2. **建設性視角**：請以「我看見了你的潛力，但可惜目前被 [問題點] 阻擋了光芒」的角度切入。一針見血是指「精準指出問題核心」，而不是「刺傷自尊」。
+        3. **溫暖的專業**：請用正面、肯定的詞彙來包裹你的建議。告訴他，他現在的困境很正常，而你有一套方法可以帶他走出來。
+
+        JSON 結構範本：
+        {
+          "selectedPersonaId": "從 [charmer, statue, hustler, neighbor, sage, pioneer] 中選一個最貼切的 ID",
+          "personaExplanation": "深度分析為什麼他符合這個人格原型，請引用他的具體作答來佐證 (約 150 字)",
+          "personaOverview": "一句話總結他的現狀",
+          "skinAnalysis": "針對『面容氣色』的具體分析建議 (約 50 字)",
+          "hairAnalysis": "針對『髮型駕馭』的具體分析建議 (約 50 字)",
+          "styleAnalysis": "針對『穿搭策略』的具體分析建議 (約 50 字)",
+          "socialAnalysis": "針對『社群形象』的具體分析建議 (約 50 字)",
+          "coachGeneralAdvice": "教練的總結戰略建議 (約 200 字)。**請務必分成 2-3 個段落撰寫，不要寫成一大塊文字**，段落間請留空行，讓閱讀更輕鬆。**結尾必須嚴格包含此句**：「一定要記得，知道問題不等於能解決問題，形象的改造涉及到對自我的認識與系統化的打扮邏輯，若無系統性訓練很容易走彎路、花冤枉錢，你需要查看下方的『**3天形象急救計畫**』，讓我陪你把這塊原石磨出光彩。」"
+        }
+      `;
+  };
+
   // 獨立出的分析函數
   const runDiagnosis = async (forceFallback: boolean = false, overrideKey: string = '') => {
     if (!localSummary) return;
@@ -661,7 +766,8 @@ const App: React.FC = () => {
       hairAnalysis: "髮型決定第一印象，請尋找合適設計師。",
       styleAnalysis: "穿搭需要策略，請注重版型與修飾。",
       socialAnalysis: "經營社群就是經營個人品牌。",
-      coachGeneralAdvice: "這是一份基礎戰略報告。請參考上方的雷達圖與維度分析，這依然是你提升魅力的重要起點。若需 **完整的 AI 深度解析**，建議稍後再試。"
+      coachGeneralAdvice: "這是一份基礎戰略報告。請參考上方的雷達圖與維度分析，這依然是你提升魅力的重要起點。若需 **完整的 AI 深度解析**，建議稍後再試。",
+      aiStatus: 'fallback'
     };
 
     if (forceFallback) {
@@ -689,71 +795,7 @@ const App: React.FC = () => {
       console.log("Initializing Google GenAI...");
       const ai = new GoogleGenAI({ apiKey: apiKeyToUse });
       
-      const detailedData = QUESTIONS.map(q => ({
-        category: q.category,
-        question: q.text,
-        answer: OPTIONS.find(o => o.value === answers[q.id])?.label || '未答'
-      }));
-
-      const prompt = `
-        你現在是專業男性形象教練「彭邦典」。這是一位 25-35 歲男性的「形象力檢測」測驗結果報告。
-        
-        數據：
-        1. 總分：${localSummary.totalScore}/60 (共4類，每類15分)
-        2. 各維度分數：${JSON.stringify(localSummary.summary.map(s => ({ cat: s.category, score: s.score, level: s.level })))}
-        3. 具體作答：${JSON.stringify(detailedData)}
-        4. 使用者姓名：${userName || '你'}
-
-        任務指令：
-        請根據「詳細作答內容」與「分數分佈」，判定他最符合哪一個人格原型。請嚴格遵守下方的判定矩陣，避免過度將人歸類為路人甲。
-
-        **人格判定邏輯矩陣 (請優先判斷)：**
-
-        1. **理論派觀察家 (sage)** [高優先判斷]：
-           - 特徵：**知行不合一**。
-           - 判斷依據：請檢查他的作答。若他在「知識型/觀念型」題目（關鍵字：我知道、我清楚、我了解）選「非常符合/有點符合」，但在「實作型/習慣型」題目（關鍵字：我有固定、我會定期、重現造型）選「不太符合/完全沒有」。這代表他懂理論但沒做到。
-
-        2. **半成品帥哥 (statue)**：
-           - 特徵：**遠看可以，近看破功**。
-           - 判斷依據：「穿搭策略」或「髮型駕馭」分數較高（綠燈或高標黃燈），但「面容氣色」分數偏低（紅燈）。代表他會打扮，但皮膚細節或眉毛雜毛沒處理好。
-
-        3. **風格迷航者 (hustler)**：
-           - 特徵：**用力過猛**。
-           - 判斷依據：「穿搭策略」得分不低，但可能在「風格系統」或「購物邏輯」題選了低分；或者總分中等，但社群形象分數極低（代表審美未具象化）。
-
-        4. **全方位質感男神 (charmer)**：
-           - 判斷依據：總分 > 48，且四大維度皆無紅燈。作答幾乎都是「非常符合」。
-
-        5. **形象重塑者 (pioneer)**：
-           - 判斷依據：總分 < 24，或四大維度中有 3 個以上是紅燈。代表各方面都還是一張白紙。
-
-        6. **乾淨的路人甲 (neighbor)** [預設值]：
-           - 判斷依據：若 **不符合** 上述任何特徵。各維度分數非常平均，沒有特別的高分項，也沒有致命低分，作答大多落在「有點符合」或「不太符合」的中間地帶。
-
-        ---
-        
-        **寫作風格重點 (重要)：**
-        請使用 \`**重點文字**\` 來標記關鍵建議，系統會自動高亮。
-        
-        **語氣調整：**
-        請扮演一位「溫暖、堅定且值得信賴的導師」。
-        請在分析與建議中，使用自然、流暢的第二人稱（你）來對話，不需要刻意填入名字，重點是讓對方感受到被理解與支持。
-        1. **收斂攻擊性**：請絕對避免使用帶有嘲諷、羞辱感或過度嚴厲的譬喻（例如：不要說「難以下嚥」、「只模仿皮毛」這類讓人感到挫折的話）。
-        2. **建設性視角**：請以「我看見了你的潛力，但可惜目前被 [問題點] 阻擋了光芒」的角度切入。一針見血是指「精準指出問題核心」，而不是「刺傷自尊」。
-        3. **溫暖的專業**：請用正面、肯定的詞彙來包裹你的建議。告訴他，他現在的困境很正常，而你有一套方法可以帶他走出來。
-        
-        JSON 結構範本：
-        {
-          "selectedPersonaId": "從 [charmer, statue, hustler, neighbor, sage, pioneer] 中選一個最貼切的 ID",
-          "personaExplanation": "深度分析為什麼他符合這個人格原型，請引用他的具體作答來佐證 (約 150 字)",
-          "personaOverview": "一句話總結他的現狀",
-          "skinAnalysis": "針對『面容氣色』的具體分析建議 (約 50 字)",
-          "hairAnalysis": "針對『髮型駕馭』的具體分析建議 (約 50 字)",
-          "styleAnalysis": "針對『穿搭策略』的具體分析建議 (約 50 字)",
-          "socialAnalysis": "針對『社群形象』的具體分析建議 (約 50 字)",
-          "coachGeneralAdvice": "教練的總結戰略建議 (約 200 字)。**請務必分成 2-3 個段落撰寫，不要寫成一大塊文字**，段落間請留空行，讓閱讀更輕鬆。**結尾必須嚴格包含此句**：「一定要記得，知道問題不等於能解決問題，形象的改造涉及到對自我的認識與系統化的打扮邏輯，若無系統性訓練很容易走彎路、花冤枉錢，你需要查看下方的『**3天形象急救計畫**』，讓我陪你把這塊原石磨出光彩。」"
-        }
-      `;
+      const prompt = buildAiPrompt(localSummary);
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
@@ -767,7 +809,7 @@ const App: React.FC = () => {
       if (!text) throw new Error("Empty response from Gemini");
 
       const parsedData = JSON.parse(text) as AiReport;
-      setAiAnalysis(parsedData);
+      setAiAnalysis({ ...parsedData, aiStatus: 'success' });
 
     } catch (e: any) {
       console.error("AI Analysis Error:", e);
