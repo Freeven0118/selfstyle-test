@@ -807,13 +807,16 @@ const App: React.FC = () => {
       
       const prompt = buildAiPrompt(localSummary);
 
-      // 最多嘗試 2 次：偶發的 JSON 格式瑕疵或暫時性錯誤，自動重試一次
+      // 最多嘗試 3 次（每次間隔 2.5 秒，第 3 次改用備援模型），
+      // 降低 Gemini 偶發過載（503）或格式瑕疵造成的失敗率
+      const MODEL_ATTEMPTS = ['gemini-3.5-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
       let parsedData: AiReport | null = null;
       let lastAttemptError: any = null;
-      for (let attempt = 0; attempt < 2 && !parsedData; attempt++) {
+      for (let attempt = 0; attempt < MODEL_ATTEMPTS.length && !parsedData; attempt++) {
         try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2500));
           const response = await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: MODEL_ATTEMPTS[attempt],
             contents: prompt,
             config: {
               responseMimeType: 'application/json'
