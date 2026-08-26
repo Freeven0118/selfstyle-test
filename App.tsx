@@ -616,10 +616,13 @@ const App: React.FC = () => {
     let timer: number;
     if (step === 'diagnosing' && !lastError) {
       setFakeProgress(1);
+      // 漸減式速度：前段快、越接近 99% 越慢，不停滯（AI 回覆時直接跳 100%）
+      // 參考節奏：10秒→55%、20秒→79%、30秒→90%、45秒→96%
       timer = window.setInterval(() => {
         setFakeProgress(prev => {
-          if (prev >= 98) return prev;
-          return prev + 0.8; 
+          if (prev >= 99) return 99;
+          const increment = Math.max(0.05, (99 - prev) * 0.008);
+          return Math.min(99, prev + increment);
         });
       }, 100);
     }
